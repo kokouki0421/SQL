@@ -1,0 +1,59 @@
+--1.　請按照產品類別分類，列出每一類價格大於平均價格的產品資料
+with table2
+as
+(
+select CategoryID,UnitPrice,
+	avg(UnitPrice) over(partition by CategoryID) as AvgPrice
+from dbo.Products
+)
+select CategoryID,UnitPrice,AvgPrice
+from table2
+where UnitPrice > AvgPrice
+order by CategoryID
+
+--2.　請按照產品類別分類，同一類產品按照價格從大排到小，列出與前一筆價格超過15%的產品
+with RankPrice
+as
+(
+select CategoryID,ProductName,UnitPrice,
+	lag(UnitPrice,1,null)
+	over(partition by CategoryID order by CategoryID, UnitPrice Desc)as PrevPrice
+	
+from dbo.Products
+)
+select *,(PrevPrice - UnitPrice)/UnitPrice as diff from RankPrice
+where (PrevPrice - UnitPrice)/UnitPrice > 0.15
+order by CategoryID, UnitPrice Desc
+
+--3.　按照產品價格排序，算出最貴的20%產品與最便宜的20%產品的價差
+with diffprice
+as
+(
+	select 
+		ProductID,ProductName,UnitPrice,
+		ntile(5) over ( order by UnitPrice desc )as RankPrice
+	from dbo.Products
+)
+select 
+	AVG(case RankPrice when 1 then UnitPrice end)-
+	AVG(case RankPrice when 5 then UnitPrice end) as DiffPrice
+	
+from diffprice 
+
+
+
+--4.　找出每一類產品的最高和最低價的兩個產品資料
+go
+with bbb
+as
+(
+	select CategoryID,ProductID,ProductName, UnitPrice, 
+		first_value( UnitPrice )over(partition by CategoryID order by UnitPrice desc) as expensive,
+		first_value( UnitPrice )over(partition by CategoryID order by UnitPrice) as cheap
+	from Products
+)
+select CategoryID,ProductID,ProductName, UnitPrice from bbb
+where UnitPrice in (expensive,cheap)
+order by  CategoryID,UnitPrice desc
+
+
